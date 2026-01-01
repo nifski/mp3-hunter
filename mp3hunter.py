@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-import yt_dlp
+from youtubesearchpython import VideosSearch
+import uvicorn
 import os
 
 app = FastAPI()
@@ -22,36 +23,37 @@ async def read_index():
 def search_youtube(q: str):
     print(f"SCANNING_NETWORK_FOR: {q}")
     
-    ydl_opts = {
-        'quiet': True,
-        'nocheckcertificate': True,
-        'default_search': 'ytsearch',
-        'noplaylist': True,
-        'geo_bypass': True,
-        'ignoreerrors': True,
-    }
-
-    results = []
-    
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            search_query = f"ytsearch10:{q}"
-            info = ydl.extract_info(search_query, download=False)
-
-            if 'entries' in info:
-                for video in info['entries']:
-                    if not video: continue
-                    
-                    results.append({
-                        "id": video.get('id'),
-                        "title": video.get('title', 'UNKNOWN_TITLE'),
-                        "author": video.get('uploader', 'UNKNOWN_AUTHOR'),
-                        "views": video.get('view_count') or 0,
-                        "date": video.get('upload_date', '00000000'),
-                        "thumbnail": video.get('thumbnail') or video.get('thumbnails', [{}])[-1].get('url', ''),
-                        "url": video.get('webpage_url', '#')
-                    })
-        except Exception as e:
-            return {"error": str(e)}
+    try:
+        videos_search = VideosSearch(q, limit=10)
+        results_dict = videos_search.result()
+        
+        clean_results = []
+        
+        for video in results_dict.get('result', []):
             
-    return results
+            thumbnails = video.get('thumbnails', [])
+            thumb_url = thumbnails[-1]['url'] if thumbnails else ''
+            
+            view_text = video.get('viewCount', {'text': '0'})['text']
+            import re
+            views_numeric = re.sub(r'[^\d]', '', view_text)
+            views_numeric = int(views_numeric) if views_numeric else 0
+            
+            clean_results.append({
+                "id": video.get('id'),
+                "title": video.get('title', 'UNKNOWN_TITLE'),
+                "author": video.get('channel', {}).get('name', 'UNKNOWN_AUTHOR'),
+                "views": views_numeric,
+                "date": video.get('publishedTime', 'N/A'),
+                "thumbnail": thumb_url,
+                "url": video.get('link', '#')
+            })
+            
+        return clean_results
+
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return {"error": str(e)}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
