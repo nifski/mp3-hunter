@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+    <title>MP3HUNTER</title>
+    <style>
+        :root {
+            --neon-green: #39ff14;
+            --dark-bg: #050505;
+            --dim-green: rgba(57, 255, 20, 0.2);
+        }
+        body {
+            background-color: var(--dark-bg);
+            color: var(--neon-green);
+            font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding-top: 50px;
+        }
+        .terminal-container {
+            border: 2px solid var(--neon-green);
+            padding: 2rem;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 0 15px var(--dim-green);
+            background: #000;
+            position: relative;
+        }
+        .terminal-container::before {
+            content: "";
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 1px solid var(--dim-green);
+            pointer-events: none;
+        }
+        h1 {
+            text-align: center;
+            text-shadow: 0 0 10px var(--neon-green);
+            letter-spacing: 2px;
+            margin-bottom: 2rem;
+            font-weight: 700;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 2rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .input-group { flex-grow: 1; min-width: 200px; }
+        .label { display: block; font-weight: bold; margin-bottom: 8px; opacity: 0.8; font-size: 0.8rem; }
+        
+        input, select, button {
+            width: 100%; background: transparent; border: 1px solid var(--neon-green);
+            color: var(--neon-green); padding: 15px; font-family: inherit;
+            font-size: 1rem; outline: none; box-sizing: border-box;
+            border-radius: 0; appearance: none;
+        }
+        input:focus, select:focus, button:focus { background: var(--dim-green); box-shadow: inset 0 0 15px var(--dim-green); }
+        
+        .search-btn {
+            width: auto;
+            cursor: pointer;
+            font-weight: bold;
+            background: var(--dim-green);
+            transition: 0.2s;
+            padding: 15px 25px;
+        }
+        .search-btn:hover {
+            background: var(--neon-green);
+            color: #000;
+        }
+
+        .select-wrapper {
+            position: relative;
+            width: 220px;
+            flex-shrink: 0;
+        }
+        .select-wrapper::after {
+            content: "▼";
+            position: absolute;
+            right: 15px; top: 18px;
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+
+        .result-card {
+            display: flex; margin-bottom: 20px; border-bottom: 1px dotted var(--dim-green);
+            padding-bottom: 20px; gap: 20px;
+        }
+        .thumb-wrapper {
+            position: relative; width: 200px; min-width: 200px; height: 110px;
+            border: 1px solid var(--neon-green); cursor: pointer;
+        }
+        .thumb-img {
+            width: 100%; height: 100%; object-fit: cover; filter: grayscale(100%); transition: 0.3s;
+        }
+        .thumb-wrapper:hover .thumb-img { filter: grayscale(0%); }
+        .play-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: 0.2s;
+        }
+        .thumb-wrapper:hover .play-overlay { opacity: 1; }
+        .triangle {
+            width: 0; height: 0; border-top: 12px solid transparent;
+            border-bottom: 12px solid transparent; border-left: 22px solid var(--neon-green);
+        }
+        .info-col { flex: 1; }
+        .video-title {
+            color: var(--neon-green); text-decoration: none; font-weight: bold;
+            display: block; margin-bottom: 10px; text-transform: uppercase;
+        }
+        .video-title:hover { background: var(--neon-green); color: black; }
+        
+        .stats { 
+            font-size: 0.75rem; 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 8px; 
+            opacity: 0.9; 
+            margin-top: 10px;
+        }
+        
+        #loading { text-align: center; animation: blink 1s infinite; display: none; margin: 20px 0; }
+        @keyframes blink { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+
+<div class="terminal-container">
+    <h1>MP3_HUNTER // V2.7</h1>
+
+    <div class="controls">
+        <div class="input-group">
+            <span class="label">ENTER_SEARCH_QUERY:</span>
+            <input type="text" id="searchInput" placeholder="SEARCH_DATABASE..." autocomplete="off">
+        </div>
+        
+        <div style="padding-bottom:1px;">
+            <span class="label" style="visibility:hidden;">ACTION</span>
+            <button class="search-btn" onclick="triggerSearch()">[ SEARCH ]</button>
+        </div>
+
+        <div class="select-wrapper">
+            <span class="label">SORT_BY:</span>
+            <select id="sortSelect" onchange="sortResults()">
+                <option value="relevance">RELEVANCE</option>
+                <option value="viewsHigh">VIEWS (HIGH->LOW)</option>
+                <option value="viewsLow">VIEWS (LOW->HIGH)</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="loading">[ SCANNING_NETWORK... ]</div>
+    <div id="resultsArea"></div>
+
+    <div style="margin-top: 3rem; text-align: center; font-size: 0.6rem; opacity: 0.5; border-top: 1px solid var(--dim-green); padding-top: 10px;">
+        SYSTEM_ARCHITECT: NIFEMI ODUMOSU <br> COPYRIGHT 2025 // SECURE_CONNECTION
+    </div>
+</div>
+
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const resultsArea = document.getElementById('resultsArea');
+    const loading = document.getElementById('loading');
+    const sortSelect = document.getElementById('sortSelect');
+    
+    let globalVideos = [];
+
+    searchInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            triggerSearch();
+        }
+    });
+
+    function triggerSearch() {
+        performSearch(searchInput.value);
+    }
+
+    async function performSearch(query) {
+        if (!query) return;
+        
+        resultsArea.innerHTML = '';
+        loading.style.display = 'block';
+        globalVideos = []; 
+
+        try {
+            const response = await fetch(`/search?q=${query}`);
+            const data = await response.json();
+
+            loading.style.display = 'none';
+
+            if (data.error) {
+                resultsArea.innerHTML = `<div style="color:red; text-align:center; margin-top:20px;">[SYSTEM_FAILURE]: ${data.error}</div>`;
+                return;
+            }
+
+            if (!Array.isArray(data) || data.length === 0) {
+                resultsArea.innerHTML = '<div style="text-align:center; margin-top:20px;">-- NO_DATA_FOUND --</div>';
+                return;
+            }
+
+            globalVideos = data;
+            sortResults();
+
+        } catch (error) {
+            loading.style.display = 'none';
+            resultsArea.innerHTML = `<div style="color:red; text-align:center; margin-top:20px;">CONNECTION_ERROR: Check Backend Terminal</div>`;
+        }
+    }
+
+    function sortResults() {
+        const criteria = sortSelect.value;
+        let sorted = [...globalVideos];
+
+        if (criteria === 'viewsHigh') {
+            sorted.sort((a, b) => b.views - a.views);
+        } else if (criteria === 'viewsLow') {
+            sorted.sort((a, b) => a.views - b.views);
+        }
+
+        renderVideos(sorted);
+    }
+
+    function renderVideos(videos) {
+        resultsArea.innerHTML = '';
+        
+        videos.forEach(vid => {
+            let dateStr = "N/A";
+            if(vid.date && vid.date !== '00000000' && vid.date.length === 8) {
+                dateStr = `${vid.date.substring(6,8)}/${vid.date.substring(4,6)}/${vid.date.substring(0,4)}`;
+            }
+
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            
+            card.innerHTML = `
+                <div class="thumb-wrapper" onclick="playPreview(this, '${vid.id}')">
+                    <img src="${vid.thumbnail}" class="thumb-img">
+                    <div class="play-overlay"><div class="triangle"></div></div>
+                </div>
+                <div class="info-col">
+                    <a href="${vid.url}" target="_blank" class="video-title">${vid.title}</a>
+                    <div class="stats">
+                        <div>CHANNEL: ${vid.author}</div>
+                        <div>VIEWS: ${Number(vid.views).toLocaleString()}</div>
+                        <div>DATE: ${dateStr}</div>
+                        <div>STATUS: ONLINE</div>
+                    </div>
+                </div>
+            `;
+            resultsArea.appendChild(card);
+        });
+    }
+
+    function playPreview(wrapperElement, videoId) {
+        wrapperElement.innerHTML = `
+            <iframe width="100%" height="100%" 
+            src="https://www.youtube.com/embed/${videoId}?autoplay=1&end=30&controls=0" 
+            frameborder="0" allow="autoplay"></iframe>
+        `;
+        wrapperElement.onclick = null;
+    }
+</script>
+
+</body>
+</html>
