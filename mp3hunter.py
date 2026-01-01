@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from youtubesearchpython import VideosSearch
+from youtube_search import YoutubeSearch
 import uvicorn
 import os
+import json
 
 app = FastAPI()
 
@@ -24,29 +25,32 @@ def search_youtube(q: str):
     print(f"SCANNING_NETWORK_FOR: {q}")
     
     try:
-        videos_search = VideosSearch(q, limit=10)
-        results_dict = videos_search.result()
+        results = YoutubeSearch(q, max_results=10).to_dict()
         
         clean_results = []
         
-        for video in results_dict.get('result', []):
+        for video in results:
+            video_url = f"https://www.youtube.com{video.get('url_suffix')}"
             
-            thumbnails = video.get('thumbnails', [])
-            thumb_url = thumbnails[-1]['url'] if thumbnails else ''
-            
-            view_text = video.get('viewCount', {'text': '0'})['text']
+            raw_views = video.get('views', '0')
             import re
-            views_numeric = re.sub(r'[^\d]', '', view_text)
+            views_numeric = re.sub(r'[^\d]', '', raw_views)
             views_numeric = int(views_numeric) if views_numeric else 0
             
+            thumb = video.get('thumbnails', [None])[0]
+            if isinstance(thumb, str):
+                thumb_url = thumb
+            else:
+                thumb_url = f"https://i.ytimg.com/vi/{video.get('id')}/hqdefault.jpg"
+
             clean_results.append({
                 "id": video.get('id'),
                 "title": video.get('title', 'UNKNOWN_TITLE'),
-                "author": video.get('channel', {}).get('name', 'UNKNOWN_AUTHOR'),
+                "author": video.get('channel', 'UNKNOWN_AUTHOR'),
                 "views": views_numeric,
-                "date": video.get('publishedTime', 'N/A'),
+                "date": video.get('publish_time', 'N/A'),
                 "thumbnail": thumb_url,
-                "url": video.get('link', '#')
+                "url": video_url
             })
             
         return clean_results
