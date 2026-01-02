@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from youtube_search import YoutubeSearch
+from fastapi.responses import FileResponse
+
 import uvicorn
 import os
 import json
@@ -19,13 +21,17 @@ app.add_middleware(
 @app.get("/")
 async def read_index():
     return FileResponse('index.html')
+    
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse('favicon.ico')
 
 @app.get("/search")
 def search_youtube(q: str):
     print(f"SCANNING_NETWORK_FOR: {q}")
     
     try:
-        results = YoutubeSearch(q, max_results=10).to_dict()
+        results = YoutubeSearch(q, max_results=50).to_dict()
         
         clean_results = []
         

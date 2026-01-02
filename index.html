@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,6 +24,7 @@
             display: flex;
             justify-content: center;
             padding-top: 50px;
+            padding-bottom: 50px;
         }
         .terminal-container {
             border: 2px solid var(--neon-green);
@@ -129,6 +131,27 @@
             margin-top: 10px;
         }
         
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            border-top: 1px solid var(--dim-green);
+            padding-top: 20px;
+            visibility: hidden;
+        }
+        .page-btn {
+            width: auto;
+            padding: 10px 20px;
+            cursor: pointer;
+            background: transparent;
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+            font-family: inherit;
+        }
+        .page-btn:hover { background: var(--dim-green); }
+        .page-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: #555; color: #555; }
+        
         #loading { text-align: center; animation: blink 1s infinite; display: none; margin: 20px 0; }
         @keyframes blink { 50% { opacity: 0; } }
     </style>
@@ -150,7 +173,7 @@
         </div>
 
         <div class="select-wrapper">
-            <span class="label">SORT_BY:</span>
+            <span class="label">SORT BY:</span>
             <select id="sortSelect" onchange="sortResults()">
                 <option value="relevance">RELEVANCE</option>
                 <option value="viewsHigh">VIEWS (HIGH -> LOW)</option>
@@ -159,11 +182,17 @@
         </div>
     </div>
 
-    <div id="loading">[ SCANNING_NETWORK... ]</div>
+    <div id="loading">[ SCANNING NETWORK... ]</div>
     <div id="resultsArea"></div>
 
+    <div class="pagination" id="paginationBar">
+        <button class="page-btn" id="prevBtn" onclick="changePage(-1)">[ < PREV ]</button>
+        <span id="pageIndicator">PAGE 1 / 1</span>
+        <button class="page-btn" id="nextBtn" onclick="changePage(1)">[ NEXT > ]</button>
+    </div>
+
     <div style="margin-top: 3rem; text-align: center; font-size: 0.6rem; opacity: 0.5; border-top: 1px solid var(--dim-green); padding-top: 10px;">
-        SYSTEM_ARCHITECT: NIFEMI ODUMOSU <br> COPYRIGHT 2026 // SECURE_CONNECTION
+        SYSTEM_ARCHITECT: <a href="https://www.linkedin.com/in/nifemi-odumosu-b531862a3" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid var(--neon-green);">NIFEMI ODUMOSU</a> <br> &copy; COPYRIGHT 2026 // SECURE CONNECTION
     </div>
 </div>
 
@@ -173,7 +202,14 @@
     const loading = document.getElementById('loading');
     const sortSelect = document.getElementById('sortSelect');
     
+    const paginationBar = document.getElementById('paginationBar');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const pageIndicator = document.getElementById('pageIndicator');
+    
     let globalVideos = [];
+    let currentPage = 1;
+    const itemsPerPage = 10;
 
     searchInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') {
@@ -190,6 +226,7 @@
         
         resultsArea.innerHTML = '';
         loading.style.display = 'block';
+        paginationBar.style.visibility = 'hidden'; 
         globalVideos = []; 
 
         try {
@@ -219,15 +256,38 @@
 
     function sortResults() {
         const criteria = sortSelect.value;
-        let sorted = [...globalVideos];
-
         if (criteria === 'viewsHigh') {
-            sorted.sort((a, b) => b.views - a.views);
+            globalVideos.sort((a, b) => b.views - a.views);
         } else if (criteria === 'viewsLow') {
-            sorted.sort((a, b) => a.views - b.views);
+            globalVideos.sort((a, b) => a.views - b.views);
         }
 
-        renderVideos(sorted);
+        currentPage = 1;
+        renderPage();
+    }
+
+    function changePage(direction) {
+        currentPage += direction;
+        renderPage();
+    }
+
+    function renderPage() {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pageVideos = globalVideos.slice(startIndex, endIndex);
+
+        renderVideos(pageVideos);
+
+        const totalPages = Math.ceil(globalVideos.length / itemsPerPage);
+        pageIndicator.innerText = `PAGE ${currentPage} / ${totalPages}`;
+        paginationBar.style.visibility = totalPages > 1 ? 'visible' : 'hidden';
+
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage >= totalPages;
+
+        if(currentPage > 1) {
+             document.querySelector('.terminal-container').scrollIntoView({ behavior: 'smooth' });
+        }
     }
 
     function renderVideos(videos) {
